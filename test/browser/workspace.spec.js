@@ -533,7 +533,9 @@ test("meeting title links open with browser history; notebook editing, action co
   await expect(page.locator("#notebook-actions input")).toBeChecked();
   const downloadEvent = page.waitForEvent("download");
   await page.getByRole("link", { name: "Download notes", exact: true }).click();
-  expect((await downloadEvent).suggestedFilename()).toContain("notes.txt");
+  const notesFile = await downloadEvent;
+  expect(notesFile.suggestedFilename()).toContain("notes.txt");
+  expect(await notesFile.failure()).toBeNull();
   await page.setViewportSize({ width: 390, height: 844 });
   expect(
     await page.evaluate(
