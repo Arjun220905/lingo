@@ -25,6 +25,8 @@ export async function startServer({ managed = false, beforeClose = async () => {
       const stopped = new Promise(done => server.close(done));
       // close() ends caption streams and waits for jobs before closing SQLite.
       await kit.close();
+      // A paused download or incomplete request must not hold npm stop open.
+      server.closeAllConnections();
       await stopped;
       await beforeClose();
       removeRuntime();

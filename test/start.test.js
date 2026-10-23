@@ -13,7 +13,7 @@ import {
 import { tmpdir } from "node:os";
 import { join, delimiter } from "node:path";
 import { spawn } from "node:child_process";
-import { createServer } from "node:net";
+import { createServer, createConnection } from "node:net";
 import { fileURLToPath } from "node:url";
 
 test("one-command launcher creates environment, starts local demo, shuts down, and explains occupied ports", async () => {
@@ -30,7 +30,7 @@ test("one-command launcher creates environment, starts local demo, shuts down, a
     NGROK_ENABLED: "false",
     NODE_ENV: "development",
   };
-  let child;
+  let child, heldClient;
   const run = () => {
     const process = spawn(globalThis.process.execPath, ["scripts/start.js"], {
       cwd: dir,
@@ -87,6 +87,13 @@ test("one-command launcher creates environment, starts local demo, shuts down, a
     const duplicate = run();
     assert.equal((await duplicate.exited).code, 0);
     assert.match(duplicate.getOutput(), /already running/);
+    // Leave a request body unfinished, as a stalled client can during shutdown.
+    await new Promise(done => {
+      heldClient = createConnection({ port, host: '127.0.0.1' }, () => {
+        heldClient.write('POST /api/meetings HTTP/1.1\r\nHost: localhost\r\nContent-Type: application/json\r\nContent-Length: 100\r\n\r\n{');
+        done();
+      });
+    });
     const stop = spawn(globalThis.process.execPath, ["scripts/stop.js"], { cwd: dir, env, stdio: ["ignore", "pipe", "pipe"] });
     let stopOutput = "";
     stop.stdout.on("data", d => stopOutput += d);
@@ -141,6 +148,7 @@ test("one-command launcher creates environment, starts local demo, shuts down, a
     child.process.kill("SIGTERM");
     await child.exited;
   } finally {
+    heldClient?.destroy();
     child?.process.kill("SIGTERM");
     reservation.close();
     rmSync(dir, { recursive: true, force: true });
