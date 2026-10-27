@@ -173,9 +173,11 @@ test("launcher restores an offline tunnel at the same URL and closes it on npm s
       symlinkSync(join(root,'node_modules',name),join(dir,'node_modules',name),'dir');
     }
     writeFileSync(join(dir,'node_modules/@ngrok/ngrok/package.json'),JSON.stringify({type:'module',main:'index.js'}));
-    writeFileSync(join(dir,'node_modules/@ngrok/ngrok/index.js'),`import{readFileSync,writeFileSync,existsSync}from'node:fs';
+    writeFileSync(join(dir,'node_modules/@ngrok/ngrok/index.js'),`import{readFileSync,writeFileSync,existsSync,renameSync}from'node:fs';
+// Publish fixture state atomically for the polling parent and preload reader.
+const save=r=>{writeFileSync('tunnel-check.pending.json',JSON.stringify(r));renameSync('tunnel-check.pending.json','tunnel-check.json');};
 const log=()=>existsSync('tunnel-check.json')?JSON.parse(readFileSync('tunnel-check.json','utf8')):{opens:0,closes:0};
-export async function forward(options){if(!existsSync('initial-restart-retry.json')){writeFileSync('initial-restart-retry.json','{}');throw Error('ERR_NGROK_108 transient session release');}if(typeof options.onStatusChange !== 'function')throw Error('Status callback was mutated');const callback=options.onStatusChange;options.onStatusChange=true;callback('connected');const r=log();r.opens++;r.domain=options.domain||null;r.force=options.force_new_session||false;writeFileSync('tunnel-check.json',JSON.stringify(r));return{url:()=>'https://tunnel.invalid',close:async()=>{const r=log();r.closes++;writeFileSync('tunnel-check.json',JSON.stringify(r));}};}`);
+export async function forward(options){if(!existsSync('initial-restart-retry.json')){writeFileSync('initial-restart-retry.json','{}');throw Error('ERR_NGROK_108 transient session release');}if(typeof options.onStatusChange !== 'function')throw Error('Status callback was mutated');const callback=options.onStatusChange;options.onStatusChange=true;callback('connected');const r=log();r.opens++;r.domain=options.domain||null;r.force=options.force_new_session||false;save(r);return{url:()=>'https://tunnel.invalid',close:async()=>{const r=log();r.closes++;save(r);}};}`);
     writeFileSync(join(dir,'preload.js'),`import{readFileSync,existsSync}from'node:fs';
 const nativeInterval=setInterval;globalThis.setInterval=(fn,ms,...args)=>nativeInterval(fn,ms===30000?60:ms,...args);
 const nativeFetch=fetch;globalThis.fetch=(url,...args)=>{if(String(url).startsWith('https://tunnel.invalid/')){const r=existsSync('tunnel-check.json')?JSON.parse(readFileSync('tunnel-check.json','utf8')):{};return Promise.resolve(new Response(r.opens>=2?'{"ok":true}':'offline',{status:r.opens>=2?200:404}));}return nativeFetch(url,...args);};`);
@@ -186,7 +188,7 @@ const nativeFetch=fetch;globalThis.fetch=(url,...args)=>{if(String(url).startsWi
     const exited=new Promise(done=>child.once('exit',done));
     const logFile=join(dir,'tunnel-check.json');
     for(let i=0;i<100;i++){
-      if(existsSync(logFile)&&JSON.parse(readFileSync(logFile,'utf8')).opens>=2)break;
+      if(existsSync(logFile)&&JSON.parse(readFileSync(logFile,'utf8')).opens>=2 && /Public tunnel restored/.test(output))break;
       await new Promise(done=>setTimeout(done,30));
     }
     assert.deepEqual(JSON.parse(readFileSync(logFile,'utf8')),{opens:2,closes:1,domain:'tunnel.invalid',force:true});
