@@ -2,7 +2,9 @@ name: Verify accessibility kit
 on: [push, pull_request]
 jobs:
   verify:
-    runs-on: ubuntu-latest
+    # Keep browser libraries stable when GitHub moves ubuntu-latest to a new OS.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v7.0.1
       - uses: actions/setup-node@v7.1.0
