@@ -1,8 +1,8 @@
+# Lingo
+
 <p align="center">
   <img src="public/assets/readme/hero.png" alt="Lingo: a meeting worth understanding. An illustrative Hindi-to-English caption preview shows the original and translation with the same speaker and timestamp." width="100%">
 </p>
-
-# Lingo
 
 ### Follow the conversation in your language.
 
